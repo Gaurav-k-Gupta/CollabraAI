@@ -1,0 +1,27 @@
+# Ignore node_modules and .env in both Frontend and Backend
+Frontend/node_modules/
+Frontend/.env
+
+Backend/node_modules/
+Backend/.env
+
+# Optional: Ignore system files
+.DS_Store
+Thumbs.db
+
+# Optional: Ignore logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Optional: Ignore coverage reports
+coverage/
+
+# Optional: Ignore build files (in case you're building frontend)
+Frontend/build/
+Frontend/dist/
+
+# Ignore environment files at the root (if any)
+.env
