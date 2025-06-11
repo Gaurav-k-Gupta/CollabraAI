@@ -1,7 +1,8 @@
-import React, { useState , useContext } from 'react';
+import React, { useState , useContext , useEffect } from 'react';
 import { Plus, Code, Folder, Calendar, X, ArrowRight, Zap, Users, Star } from 'lucide-react';
 import { UserContext } from '../context/user.context';
 import axios from '../config/axios';
+import { useNavigate } from 'react-router-dom';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -22,33 +23,36 @@ const CollabraLogo = ({ size = 'md' }) => {
 
 const Home = () => {
   const { user } = useContext(UserContext);
+  const navigate = useNavigate();
 
   const [showModal, setShowModal] = useState(false);
   const [projectName, setProjectName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState([
-    {
-      id: 1,
-      name: 'E-commerce Platform',
-      description: 'Full-stack React application with Node.js backend',
-      lastModified: '2 hours ago',
-      collaborators: 3
-    },
-    {
-      id: 2,
-      name: 'Mobile App UI',
-      description: 'React Native application for task management',
-      lastModified: '1 day ago',
-      collaborators: 2
-    },
-    {
-      id: 3,
-      name: 'Data Visualization',
-      description: 'Interactive dashboard with D3.js and Python',
-      lastModified: '3 days ago',
-      collaborators: 5
-    }
+    // {
+    //   id: 1,
+    //   name: 'E-commerce Platform',
+    //   description: 'Full-stack React application with Node.js backend',
+    //   lastModified: '2 hours ago',
+    //   collaborators: 3
+    // },
+    // {
+    //   id: 2,
+    //   name: 'Mobile App UI',
+    //   description: 'React Native application for task management',
+    //   lastModified: '1 day ago',
+    //   collaborators: 2
+    // },
+    // {
+    //   id: 3,
+    //   name: 'Data Visualization',
+    //   description: 'Interactive dashboard with D3.js and Python',
+    //   lastModified: '3 days ago',
+    //   collaborators: 5
+    // }
   ]);
+
+  const [project, setproject] = useState([])
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
@@ -86,6 +90,28 @@ const Home = () => {
     setShowModal(false);
     setProjectName('');
   };
+
+
+  useEffect(()=>{
+    console.log(user);
+    axios.get('/projects/all').then((res)=>{
+      console.log(res);
+      setproject(res.data.projects);
+
+      const transformedProjects = res.data.projects.map((project, index) => ({
+      id: index + 1,
+      name: project.name,
+      collaborators: project.users.length
+    }));
+
+    setProjects(res.data.projects);
+
+
+    }).catch((err)=>{
+      console.log(err);
+    })
+
+  } , [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative overflow-hidden">
@@ -144,6 +170,12 @@ const Home = () => {
               <div
                 key={project.id}
                 className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
+
+                onClick={()=>{
+                  navigate(`/project` , {
+                    state : {project}
+                  })
+                }}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="p-3 bg-cyan-500/20 rounded-lg">
@@ -151,7 +183,7 @@ const Home = () => {
                   </div>
                   <div className="flex items-center space-x-1 text-slate-400">
                     <Star className="w-4 h-4" />
-                    <span className="text-sm">{project.collaborators}</span>
+                    <span className="text-sm">{project.users.length}</span>
                   </div>
                 </div>
                 
@@ -159,19 +191,23 @@ const Home = () => {
                   {project.name}
                 </h3>
                 
-                <p className="text-slate-300 text-sm mb-4 line-clamp-2">
+                {/* <p className="text-slate-300 text-sm mb-4 line-clamp-2">
                   {project.description}
-                </p>
+                </p> */}
                 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-2 text-slate-400">
-                    <Calendar className="w-4 h-4" />
-                    <span>{project.lastModified}</span>
+                    {/* <Calendar className="w-4 h-4" /> */}
+                    <span>
+                      {/* Collaborators */}
+                      {/* {project.lastModified} */}
+                      </span>
                   </div>
                   
                   <div className="flex items-center space-x-2 text-slate-400">
-                    <Users className="w-4 h-4" />
-                    <span>{project.collaborators}</span>
+                    <Users className="w-4 h-4 m-2" />
+                    Collaborators : 
+                    <span>{project.users.length}</span>
                   </div>
                 </div>
               </div>
@@ -199,7 +235,7 @@ const Home = () => {
                 </div>
                 <div>
                   <h3 className="text-2xl font-bold text-white">
-                    {projects.reduce((acc, p) => acc + p.collaborators, 0)}
+                    {projects.reduce((acc, p) => acc + p.users.length, 0)}
                   </h3>
                   <p className="text-slate-400">Collaborators</p>
                 </div>
