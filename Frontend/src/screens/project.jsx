@@ -13,6 +13,7 @@ import {
   Clock
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import axios from '../config/axios';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -46,6 +47,22 @@ const ProjectPage = () => {
   const containerRef = useRef(null);
   const resizeRef = useRef(null);
 
+
+  useEffect(() => {
+    
+    axios.get('/users/all').then((res)=>{
+      // setAllUsers(res.data.users);
+      console.log(res);
+    }).catch((err)=>{
+      console.log(err);
+    })
+
+
+  }, [])
+  
+
+
+
   // Dummy data
   const projectName = "E-commerce Platform";
   const currentUser = { id: 1, name: "You", avatar: "👤" };
@@ -57,7 +74,7 @@ const ProjectPage = () => {
     { id: 4, name: "Carol Williams", avatar: "👩‍💻", role: "Developer", online: true }
   ]);
 
-  const [allUsers] = useState([
+  const [allUsers , setAllUsers ] = useState([
     { id: 5, name: "David Brown", avatar: "👨‍💼", role: "Manager" },
     { id: 6, name: "Emma Davis", avatar: "👩‍🔬", role: "QA Engineer" },
     { id: 7, name: "Frank Wilson", avatar: "👨‍🎨", role: "UI Designer" },
