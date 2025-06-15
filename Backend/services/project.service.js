@@ -82,9 +82,6 @@ export const addUsersToProject = async ({
         if (!userObj.user || !mongoose.Types.ObjectId.isValid(userObj.user)) {
             throw new Error('Invalid user ID in users array');
         }
-        if (userObj.role && !['owner', 'admin', 'member', 'viewer'].includes(userObj.role.toLowerCase())) {
-            throw new Error('Invalid role specified');
-        }
     }
 
     // Check if requesting user belongs to project and has permission

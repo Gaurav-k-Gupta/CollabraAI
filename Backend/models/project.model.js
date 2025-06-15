@@ -25,7 +25,7 @@ const projectSchema = new mongoose.Schema({
             },
             role: {
                 type: String,
-                enum: ['owner', 'admin', 'member', 'viewer'],
+                // enum: ['owner', 'admin', 'member', 'viewer'],
                 default: 'member',
                 lowercase: true
             }

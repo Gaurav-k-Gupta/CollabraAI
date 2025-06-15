@@ -58,11 +58,10 @@ router.put('/add-user',
                 return users.every(userObj => {
                     return typeof userObj === 'object' && 
                            userObj.user && 
-                           typeof userObj.user === 'string' &&
-                           (!userObj.role || ['owner', 'admin', 'member', 'viewer'].includes(userObj.role.toLowerCase()));
+                           typeof userObj.user === 'string';
                 });
             })
-            .withMessage('Each user must be an object with a valid user ID and optional role (owner, admin, member, viewer)')
+            .withMessage('Each user must be an object with a valid user ID')
     ],
     handleValidationErrors,
     authMiddleware.authUser,

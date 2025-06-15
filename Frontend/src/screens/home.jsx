@@ -27,32 +27,30 @@ const Home = () => {
 
   const [showModal, setShowModal] = useState(false);
   const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [projects, setProjects] = useState([
-    // {
-    //   id: 1,
-    //   name: 'E-commerce Platform',
-    //   description: 'Full-stack React application with Node.js backend',
-    //   lastModified: '2 hours ago',
-    //   collaborators: 3
-    // },
-    // {
-    //   id: 2,
-    //   name: 'Mobile App UI',
-    //   description: 'React Native application for task management',
-    //   lastModified: '1 day ago',
-    //   collaborators: 2
-    // },
-    // {
-    //   id: 3,
-    //   name: 'Data Visualization',
-    //   description: 'Interactive dashboard with D3.js and Python',
-    //   lastModified: '3 days ago',
-    //   collaborators: 5
-    // }
-  ]);
+  const [projects, setProjects] = useState([]);
 
-  const [project, setproject] = useState([])
+  // Function to format relative time
+  const getRelativeTime = (dateString) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMs = now - date;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    const diffInMonths = Math.floor(diffInDays / 30);
+    const diffInYears = Math.floor(diffInDays / 365);
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''} ago`;
+    if (diffInHours < 24) return `${diffInHours} hour${diffInHours > 1 ? 's' : ''} ago`;
+    if (diffInDays < 7) return `${diffInDays} day${diffInDays > 1 ? 's' : ''} ago`;
+    if (diffInWeeks < 4) return `${diffInWeeks} week${diffInWeeks > 1 ? 's' : ''} ago`;
+    if (diffInMonths < 12) return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
+    return `${diffInYears} year${diffInYears > 1 ? 's' : ''} ago`;
+  };
 
   const handleCreateProject = async (e) => {
     e.preventDefault();
@@ -60,58 +58,49 @@ const Home = () => {
 
     setIsLoading(true);
     
-    // Simulate API call
-    axios.post('/projects/create' , {
-      name : projectName,
-    }).then((res)=>{
-      console.log(res);
-    }).catch((error)=>{
-      console.log(error);
-    })
-
-
-    setTimeout(() => {
-      const newProject = {
-        id: projects.length + 1,
+    try {
+      const response = await axios.post('/projects/create', {
         name: projectName,
-        description: 'New project ready for collaboration',
-        lastModified: 'Just now',
-        collaborators: 1
-      };
+        description: projectDescription
+      });
       
-      setProjects([newProject, ...projects]);
+      console.log(response);
+      
+      // Clear form
       setProjectName('');
+      setProjectDescription('');
       setShowModal(false);
+      
+      // Refresh projects list
+      fetchProjects();
+      
+    } catch (error) {
+      console.log(error);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleCloseModal = () => {
     setShowModal(false);
     setProjectName('');
+    setProjectDescription('');
   };
 
-
-  useEffect(()=>{
-    console.log(user);
-    axios.get('/projects/all').then((res)=>{
-      console.log(res);
-      setproject(res.data.projects);
-
-      const transformedProjects = res.data.projects.map((project, index) => ({
-      id: index + 1,
-      name: project.name,
-      collaborators: project.users.length
-    }));
-
-    setProjects(res.data.projects);
-
-
-    }).catch((err)=>{
+  const fetchProjects = async () => {
+    try {
+      const response = await axios.get('/projects/all');
+      console.log(response);
+      setProjects(response.data.projects);
+    } catch (err) {
       console.log(err);
-    })
+    }
+  };
 
-  } , [ isLoading ])
+  useEffect(() => {
+    console.log(user);
+    fetchProjects();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative overflow-hidden">
@@ -168,12 +157,11 @@ const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projects.map((project) => (
               <div
-                key={project.id}
+                key={project._id}
                 className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 hover:bg-white/15 transition-all duration-200 cursor-pointer group"
-
-                onClick={()=>{
-                  navigate(`/project` , {
-                    state : {project}
+                onClick={() => {
+                  navigate(`/project`, {
+                    state: { project }
                   })
                 }}
               >
@@ -191,22 +179,20 @@ const Home = () => {
                   {project.name}
                 </h3>
                 
-                {/* <p className="text-slate-300 text-sm mb-4 line-clamp-2">
-                  {project.description}
-                </p> */}
+                <p className="text-slate-300 text-sm mb-4 line-clamp-2">
+                  {project.description || 'No description provided'}
+                </p>
                 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-2 text-slate-400">
-                    {/* <Calendar className="w-4 h-4" /> */}
+                    <Calendar className="w-4 h-4" />
                     <span>
-                      {/* Collaborators */}
-                      {/* {project.lastModified} */}
-                      </span>
+                      {getRelativeTime(project.updatedAt)}
+                    </span>
                   </div>
                   
                   <div className="flex items-center space-x-2 text-slate-400">
-                    <Users className="w-4 h-4 m-2" />
-                    Collaborators : 
+                    <Users className="w-4 h-4 m-2" /> 
                     <span>{project.users.length}</span>
                   </div>
                 </div>
@@ -271,7 +257,7 @@ const Home = () => {
               </button>
             </div>
             
-            <div className="space-y-6">
+            <form onSubmit={handleCreateProject} className="space-y-6">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-300">
                   Project Name
@@ -283,6 +269,19 @@ const Home = () => {
                   className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
                   placeholder="Enter project name"
                   required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-300">
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm resize-none"
+                  placeholder="Enter project description"
+                  rows="3"
                 />
               </div>
               
@@ -298,8 +297,6 @@ const Home = () => {
                   type="submit"
                   disabled={isLoading || !projectName.trim()}
                   className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-3 px-6 rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:ring-offset-2 focus:ring-offset-slate-900 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-
-                  onClick={handleCreateProject}
                 >
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
@@ -311,7 +308,7 @@ const Home = () => {
                   )}
                 </button>
               </div>
-            </div>
+            </form>
           </div>
         </div>
       )}
