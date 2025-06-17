@@ -21,17 +21,17 @@ export const createProject = async (req, res) => {
         const userId = loggedInUser._id;
 
         // Check if project with same name already exists for this user
-        const existingProject = await projectModel.findOne({
-            name: name.toLowerCase(),
-            'users.user': userId
-        });
+        // const existingProject = await projectModel.findOne({
+        //     name: name.toLowerCase(),
+        //     'users.user': userId
+        // });
 
-        if (existingProject) {
-            return res.status(409).json({
-                success: false,
-                message: 'Project with this name already exists'
-            });
-        }
+        // if (existingProject) {
+        //     return res.status(409).json({
+        //         success: false,
+        //         message: 'Project with this name already exists'
+        //     });
+        // }
 
         const newProject = await projectService.createProject({ 
             name, 

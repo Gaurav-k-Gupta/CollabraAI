@@ -10,7 +10,10 @@ import {
   User,
   MessageCircle,
   Crown,
-  Clock
+  Clock,
+  Search,
+  AlertCircle,
+  CheckCircle
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import axios from '../config/axios';
@@ -33,55 +36,38 @@ const CollabraLogo = ({ size = 'md' }) => {
 };
 
 const ProjectPage = () => {
-
-    const location = useLocation();
-    console.log(location.state);
+  const location = useLocation();
+  const project = location.state?.project;
 
   const [leftWidth, setLeftWidth] = useState(40); // Percentage
   const [isResizing, setIsResizing] = useState(false);
   const [message, setMessage] = useState('');
   const [showUsers, setShowUsers] = useState(false);
   const [showAddUsersModal, setShowAddUsersModal] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState([]);
+  
+  // API related states
+  const [allUsers, setAllUsers] = useState([]);
+  const [collaborators, setCollaborators] = useState([]);
+  const [projectData, setProjectData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Add user modal states
+  const [userEmail, setUserEmail] = useState('');
+  const [userRole, setUserRole] = useState('member');
+  const [emailSearchStatus, setEmailSearchStatus] = useState(null); // null, 'searching', 'found', 'not-found', 'already-exists'
+  const [foundUser, setFoundUser] = useState(null);
+  const [isAddingUser, setIsAddingUser] = useState(false);
   
   const containerRef = useRef(null);
   const resizeRef = useRef(null);
 
+  // Random avatars and activity generator
+  const avatars = ["👤", "👩", "👨", "👩‍💻", "👨‍💼", "👩‍🔬", "👨‍🎨", "👩‍🚀", "👨‍🏫"];
+  const getRandomAvatar = () => avatars[Math.floor(Math.random() * avatars.length)];
+  const getRandomOnlineStatus = () => Math.random() > 0.5;
 
-  useEffect(() => {
-    
-    axios.get('/users/all').then((res)=>{
-      // setAllUsers(res.data.users);
-      console.log(res);
-    }).catch((err)=>{
-      console.log(err);
-    })
-
-
-  }, [])
-  
-
-
-
-  // Dummy data
-  const projectName = "E-commerce Platform";
+  // Dummy data for messages (keeping as is)
   const currentUser = { id: 1, name: "You", avatar: "👤" };
-  
-  const [collaborators, setCollaborators] = useState([
-    { id: 1, name: "You", avatar: "👤", role: "Owner", online: true },
-    { id: 2, name: "Alice Johnson", avatar: "👩", role: "Developer", online: true },
-    { id: 3, name: "Bob Smith", avatar: "👨", role: "Designer", online: false },
-    { id: 4, name: "Carol Williams", avatar: "👩‍💻", role: "Developer", online: true }
-  ]);
-
-  const [allUsers , setAllUsers ] = useState([
-    { id: 5, name: "David Brown", avatar: "👨‍💼", role: "Manager" },
-    { id: 6, name: "Emma Davis", avatar: "👩‍🔬", role: "QA Engineer" },
-    { id: 7, name: "Frank Wilson", avatar: "👨‍🎨", role: "UI Designer" },
-    { id: 8, name: "Grace Lee", avatar: "👩‍🚀", role: "DevOps" },
-    { id: 9, name: "Henry Taylor", avatar: "👨‍🏫", role: "Tech Lead" }
-  ]);
-
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -112,6 +98,139 @@ const ProjectPage = () => {
       isOwn: true
     }
   ]);
+
+  useEffect(() => {
+    fetchProjectData();
+    fetchAllUsers();
+  }, []);
+
+  const fetchProjectData = async () => {
+    if (!project?._id) return;
+    
+    try {
+      const response = await axios.get(`/projects/get-project/${project._id}`);
+      if (response.data.success) {
+        setProjectData(response.data.project);
+        
+        // Transform project users to collaborators format
+        const transformedCollaborators = response.data.project.users.map(userObj => ({
+          id: userObj.user._id,
+          name: userObj.user.name || userObj.user.email,
+          email: userObj.user.email,
+          avatar: getRandomAvatar(),
+          role: userObj.role,
+          online: getRandomOnlineStatus()
+        }));
+        
+        setCollaborators(transformedCollaborators);
+      }
+    } catch (error) {
+      console.error('Error fetching project data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAllUsers = async () => {
+    try {
+      const response = await axios.get('/users/all');
+      if (response.data.success) {
+        setAllUsers(response.data.users);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  };
+
+  const searchUserByEmail = (email) => {
+    if (!email.trim()) {
+      setEmailSearchStatus(null);
+      setFoundUser(null);
+      return;
+    }
+
+    setEmailSearchStatus('searching');
+    
+    // Simulate a small delay for better UX
+    setTimeout(() => {
+      // Check if user already exists in project
+      const existsInProject = collaborators.some(collab => collab.email.toLowerCase() === email.toLowerCase());
+      if (existsInProject) {
+        setEmailSearchStatus('already-exists');
+        setFoundUser(null);
+        return;
+      }
+
+      // Search in all users
+      const user = allUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+      if (user) {
+        setEmailSearchStatus('found');
+        setFoundUser(user);
+      } else {
+        setEmailSearchStatus('not-found');
+        setFoundUser(null);
+      }
+    }, 300);
+  };
+
+  const handleEmailChange = (e) => {
+    const email = e.target.value;
+    setUserEmail(email);
+    
+    // Clear previous search status
+    if (!email.trim()) {
+      setEmailSearchStatus(null);
+      setFoundUser(null);
+      return;
+    }
+    
+    // Debounce search - only search when user stops typing
+    clearTimeout(window.emailSearchTimeout);
+    window.emailSearchTimeout = setTimeout(() => {
+      searchUserByEmail(email);
+    }, 500);
+  };
+
+  const handleAddUser = async () => {
+    if (!foundUser || !projectData) return;
+    
+    setIsAddingUser(true);
+    
+    try {
+      const response = await axios.put('/projects/add-user', {
+        projectId: projectData._id,
+        users: [{
+          user: foundUser._id,
+          role: userRole || 'member'
+        }]
+      });
+
+      if (response.data.success) {
+        // Update local state with new collaborator
+        const newCollaborator = {
+          id: foundUser._id,
+          name: foundUser.name || foundUser.email,
+          email: foundUser.email,
+          avatar: getRandomAvatar(),
+          role: userRole || 'member',
+          online: getRandomOnlineStatus()
+        };
+
+        setCollaborators(prev => [...prev, newCollaborator]);
+        
+        // Reset modal state
+        setUserEmail('');
+        setUserRole('member');
+        setEmailSearchStatus(null);
+        setFoundUser(null);
+        setShowAddUsersModal(false);
+      }
+    } catch (error) {
+      console.error('Error adding user:', error);
+    } finally {
+      setIsAddingUser(false);
+    }
+  };
 
   // Handle resize functionality
   const handleMouseDown = (e) => {
@@ -159,26 +278,46 @@ const ProjectPage = () => {
     }
   };
 
-  const handleAddUsers = () => {
-    const usersToAdd = allUsers.filter(user => selectedUsers.includes(user.id));
-    const newCollaborators = usersToAdd.map(user => ({
-      ...user,
-      role: "Developer",
-      online: false
-    }));
-    
-    setCollaborators([...collaborators, ...newCollaborators]);
-    setSelectedUsers([]);
-    setShowAddUsersModal(false);
+  const getStatusIcon = () => {
+    switch (emailSearchStatus) {
+      case 'searching':
+        return <div className="animate-spin w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full"></div>;
+      case 'found':
+        return <CheckCircle className="w-4 h-4 text-green-400" />;
+      case 'not-found':
+        return <AlertCircle className="w-4 h-4 text-red-400" />;
+      case 'already-exists':
+        return <AlertCircle className="w-4 h-4 text-yellow-400" />;
+      default:
+        return null;
+    }
   };
 
-  const toggleUserSelection = (userId) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId) 
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
+  const getStatusMessage = () => {
+    switch (emailSearchStatus) {
+      case 'searching':
+        return 'Searching...';
+      case 'found':
+        return `User found: ${foundUser?.name || foundUser?.email}`;
+      case 'not-found':
+        return 'User not found on platform';
+      case 'already-exists':
+        return 'User already in project';
+      default:
+        return '';
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-white">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative overflow-hidden flex flex-col">
@@ -200,7 +339,7 @@ const ProjectPage = () => {
             onClick={() => setShowUsers(!showUsers)}
             className="flex items-center space-x-2 px-4 py-2 bg-white/10 backdrop-blur-sm rounded-lg border border-white/20 text-white hover:bg-white/20 transition-all duration-200"
           >
-            <span className="font-semibold">{projectName}</span>
+            <span className="font-semibold">{projectData?.name || 'Project'}</span>
             <Users className="w-4 h-4" />
           </button>
           
@@ -274,11 +413,11 @@ const ProjectPage = () => {
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
                         <span className="text-white font-medium">{user.name}</span>
-                        {user.role === "Owner" && (
+                        {user.role === "owner" && (
                           <Crown className="w-4 h-4 text-yellow-400" />
                         )}
                       </div>
-                      <span className="text-slate-400 text-sm">{user.role}</span>
+                      <span className="text-slate-400 text-sm capitalize">{user.role}</span>
                     </div>
                     
                     <div className={`w-2 h-2 rounded-full ${user.online ? 'bg-green-400' : 'bg-slate-500'}`}></div>
@@ -371,13 +510,16 @@ const ProjectPage = () => {
       {/* Add Users Modal */}
       {showAddUsersModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 w-full max-w-md max-h-96">
+          <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 shadow-2xl border border-white/20 w-full max-w-md">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold text-white">Add Collaborators</h2>
+              <h2 className="text-xl font-bold text-white">Add Collaborator</h2>
               <button
                 onClick={() => {
                   setShowAddUsersModal(false);
-                  setSelectedUsers([]);
+                  setUserEmail('');
+                  setUserRole('member');
+                  setEmailSearchStatus(null);
+                  setFoundUser(null);
                 }}
                 className="text-slate-400 hover:text-white transition-colors"
               >
@@ -385,49 +527,81 @@ const ProjectPage = () => {
               </button>
             </div>
             
-            <div className="flex-1 overflow-y-auto space-y-3 mb-6 max-h-48">
-              {allUsers.filter(user => !collaborators.some(c => c.id === user.id)).map((user) => (
-                <div
-                  key={user.id}
-                  onClick={() => toggleUserSelection(user.id)}
-                  className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                    selectedUsers.includes(user.id)
-                      ? 'bg-cyan-500/20 border-cyan-500/50'
-                      : 'bg-white/5 border-white/10 hover:bg-white/10'
-                  }`}
-                >
-                  <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-lg">
-                    {user.avatar}
+            <div className="space-y-4">
+              {/* Email Input */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  User Email
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={userEmail}
+                    onChange={handleEmailChange}
+                    placeholder="Enter user email..."
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm pr-10"
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    {getStatusIcon()}
                   </div>
-                  
-                  <div className="flex-1">
-                    <span className="text-white font-medium block">{user.name}</span>
-                    <span className="text-slate-400 text-sm">{user.role}</span>
-                  </div>
-                  
-                  {selectedUsers.includes(user.id) && (
-                    <Check className="w-5 h-5 text-cyan-400" />
-                  )}
                 </div>
-              ))}
+                
+                {/* Status Message */}
+                {emailSearchStatus && getStatusMessage() && (
+                  <div className={`mt-2 text-sm flex items-center space-x-2 ${
+                    emailSearchStatus === 'found' ? 'text-green-400' :
+                    emailSearchStatus === 'not-found' ? 'text-red-400' :
+                    emailSearchStatus === 'already-exists' ? 'text-yellow-400' :
+                    'text-slate-400'
+                  }`}>
+                    <span>{getStatusMessage()}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Role Selection */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Role (Optional)
+                </label>
+                <select
+                  value={userRole}
+                  onChange={(e) => setUserRole(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all duration-200 backdrop-blur-sm"
+                >
+                  <option value="member" className="bg-slate-800">Member</option>
+                  <option value="admin" className="bg-slate-800">Admin</option>
+                  <option value="developer" className="bg-slate-800">Developer</option>
+                  <option value="designer" className="bg-slate-800">Designer</option>
+                  <option value="backend" className="bg-slate-800">Backend</option>
+                  <option value="frontend" className="bg-slate-800">Frontend</option>
+                </select>
+              </div>
             </div>
             
-            <div className="flex space-x-4">
+            <div className="flex space-x-4 mt-6">
               <button
                 onClick={() => {
                   setShowAddUsersModal(false);
-                  setSelectedUsers([]);
+                  setUserEmail('');
+                  setUserRole('member');
+                  setEmailSearchStatus(null);
+                  setFoundUser(null);
                 }}
                 className="flex-1 px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white hover:bg-white/10 transition-all duration-200 backdrop-blur-sm"
               >
                 Cancel
               </button>
               <button
-                onClick={handleAddUsers}
-                disabled={selectedUsers.length === 0}
-                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-3 px-4 rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleAddUser}
+                disabled={!foundUser || emailSearchStatus !== 'found' || isAddingUser}
+                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-3 px-4 rounded-xl font-semibold hover:from-cyan-600 hover:to-blue-600 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                Add ({selectedUsers.length})
+                {isAddingUser ? (
+                  <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
+                ) : (
+                  'Add User'
+                )}
               </button>
             </div>
           </div>
