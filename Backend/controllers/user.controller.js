@@ -116,7 +116,7 @@ export const loginController = async (req, res) => {
 export const profileController = async (req, res) => {
     try {
         // req.user should contain all user data from auth middleware
-        const user = await userModel.findById(req.user._id).select('-password');
+        const user = req.user;
         
         if (!user) {
             return res.status(404).json({

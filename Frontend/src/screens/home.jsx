@@ -122,7 +122,7 @@ const Home = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-slate-300">
               <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">U</span>
+                <span className="text-white text-sm font-semibold">{user.name[0]}</span>
               </div>
               <span>Welcome back!</span>
             </div>

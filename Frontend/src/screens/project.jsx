@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useContext } from 'react';
 import { 
   Code, 
   Send, 
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import axios from '../config/axios';
+import { UserContext } from '../context/user.context';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -38,6 +39,7 @@ const CollabraLogo = ({ size = 'md' }) => {
 const ProjectPage = () => {
   const location = useLocation();
   const project = location.state?.project;
+  const { user: currentUser } = useContext(UserContext);
 
   const [leftWidth, setLeftWidth] = useState(40); // Percentage
   const [isResizing, setIsResizing] = useState(false);
@@ -50,6 +52,7 @@ const ProjectPage = () => {
   const [collaborators, setCollaborators] = useState([]);
   const [projectData, setProjectData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentUserRole, setCurrentUserRole] = useState(null);
   
   // Add user modal states
   const [userEmail, setUserEmail] = useState('');
@@ -67,7 +70,7 @@ const ProjectPage = () => {
   const getRandomOnlineStatus = () => Math.random() > 0.5;
 
   // Dummy data for messages (keeping as is)
-  const currentUser = { id: 1, name: "You", avatar: "👤" };
+  const chatUser = { id: 1, name: "You", avatar: "👤" };
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -78,7 +81,7 @@ const ProjectPage = () => {
     },
     {
       id: 2,
-      user: currentUser,
+      user: chatUser,
       text: "Great work! I'll review the changes and merge them.",
       time: "10:32 AM",
       isOwn: true
@@ -92,7 +95,7 @@ const ProjectPage = () => {
     },
     {
       id: 4,
-      user: currentUser,
+      user: chatUser,
       text: "Perfect! Let me know if you need any help with the API documentation.",
       time: "10:47 AM",
       isOwn: true
@@ -105,24 +108,42 @@ const ProjectPage = () => {
   }, []);
 
   const fetchProjectData = async () => {
-    if (!project?._id) return;
+    if (!project?._id || !currentUser?._id) return;
     
     try {
       const response = await axios.get(`/projects/get-project/${project._id}`);
       if (response.data.success) {
         setProjectData(response.data.project);
         
-        // Transform project users to collaborators format
+        // Find current user's role in the project
+        const currentUserInProject = response.data.project.users.find(
+          userObj => userObj.user._id === currentUser._id
+        );
+        if (currentUserInProject) {
+          setCurrentUserRole(currentUserInProject.role);
+        }
+        
+        // Transform project users to collaborators format and sort them
         const transformedCollaborators = response.data.project.users.map(userObj => ({
           id: userObj.user._id,
           name: userObj.user.name || userObj.user.email,
           email: userObj.user.email,
           avatar: getRandomAvatar(),
           role: userObj.role,
-          online: getRandomOnlineStatus()
+          online: getRandomOnlineStatus(),
+          isCurrentUser: userObj.user._id === currentUser._id
         }));
         
-        setCollaborators(transformedCollaborators);
+        // Sort collaborators: owner first, then current user, then others
+        const sortedCollaborators = transformedCollaborators.sort((a, b) => {
+          if (a.role === 'owner') return -1;
+          if (b.role === 'owner') return 1;
+          if (a.isCurrentUser) return -1;
+          if (b.isCurrentUser) return 1;
+          return 0;
+        });
+        
+        setCollaborators(sortedCollaborators);
       }
     } catch (error) {
       console.error('Error fetching project data:', error);
@@ -213,7 +234,8 @@ const ProjectPage = () => {
           email: foundUser.email,
           avatar: getRandomAvatar(),
           role: userRole || 'member',
-          online: getRandomOnlineStatus()
+          online: getRandomOnlineStatus(),
+          isCurrentUser: false
         };
 
         setCollaborators(prev => [...prev, newCollaborator]);
@@ -231,6 +253,9 @@ const ProjectPage = () => {
       setIsAddingUser(false);
     }
   };
+
+  // Check if current user can add users (only owner or admin)
+  const canAddUsers = currentUserRole === 'owner' || currentUserRole === 'admin';
 
   // Handle resize functionality
   const handleMouseDown = (e) => {
@@ -261,7 +286,7 @@ const ProjectPage = () => {
     
     const newMessage = {
       id: messages.length + 1,
-      user: currentUser,
+      user: chatUser,
       text: message,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isOwn: true
@@ -380,7 +405,7 @@ const ProjectPage = () => {
               </div>
             )}
             
-            {showUsers && (
+            {showUsers && canAddUsers && (
               <button
                 onClick={() => setShowAddUsersModal(true)}
                 className="flex items-center space-x-2 px-3 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-500 text-white rounded-lg text-sm hover:from-cyan-600 hover:to-blue-600 transition-all duration-200"
@@ -399,10 +424,18 @@ const ProjectPage = () => {
                 {collaborators.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
+                    className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
+                      user.isCurrentUser 
+                        ? 'bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border-cyan-500/30 hover:from-cyan-500/15 hover:to-blue-500/15' 
+                        : 'bg-white/5 border-white/10 hover:bg-white/10'
+                    }`}
                   >
                     <div className="relative">
-                      <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-lg">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center text-lg ${
+                        user.isCurrentUser 
+                          ? 'bg-gradient-to-r from-cyan-600 to-blue-600' 
+                          : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                      }`}>
                         {user.avatar}
                       </div>
                       {user.online && (
@@ -412,12 +445,16 @@ const ProjectPage = () => {
                     
                     <div className="flex-1">
                       <div className="flex items-center space-x-2">
-                        <span className="text-white font-medium">{user.name}</span>
+                        <span className={`font-medium ${user.isCurrentUser ? 'text-cyan-300' : 'text-white'}`}>
+                          {user.isCurrentUser ? 'You' : user.name}
+                        </span>
                         {user.role === "owner" && (
                           <Crown className="w-4 h-4 text-yellow-400" />
                         )}
                       </div>
-                      <span className="text-slate-400 text-sm capitalize">{user.role}</span>
+                      <span className={`text-sm capitalize ${user.isCurrentUser ? 'text-cyan-400' : 'text-slate-400'}`}>
+                        {user.role}
+                      </span>
                     </div>
                     
                     <div className={`w-2 h-2 rounded-full ${user.online ? 'bg-green-400' : 'bg-slate-500'}`}></div>
