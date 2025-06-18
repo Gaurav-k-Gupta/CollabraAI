@@ -18,6 +18,7 @@ import {
 import { useLocation } from 'react-router-dom';
 import axios from '../config/axios';
 import { UserContext } from '../context/user.context';
+import { initializeSocket , sendMessage , receiveMessage } from '../config/socket';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -105,6 +106,7 @@ const ProjectPage = () => {
   useEffect(() => {
     fetchProjectData();
     fetchAllUsers();
+    initializeSocket();
   }, []);
 
   const fetchProjectData = async () => {
