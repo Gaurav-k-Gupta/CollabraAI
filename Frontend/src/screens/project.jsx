@@ -62,52 +62,65 @@ const ProjectPage = () => {
   const [foundUser, setFoundUser] = useState(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   
+  // Socket initialization flag
+  const [socketInitialized, setSocketInitialized] = useState(false);
+  
   const containerRef = useRef(null);
   const resizeRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   // Random avatars and activity generator
   const avatars = ["👤", "👩", "👨", "👩‍💻", "👨‍💼", "👩‍🔬", "👨‍🎨", "👩‍🚀", "👨‍🏫"];
   const getRandomAvatar = () => avatars[Math.floor(Math.random() * avatars.length)];
   const getRandomOnlineStatus = () => Math.random() > 0.5;
 
-  // Dummy data for messages (keeping as is)
-  const chatUser = { id: 1, name: "You", avatar: "👤" };
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      user: { id: 2, name: "Alice Johnson", avatar: "👩" },
-      text: "Hey everyone! I've pushed the latest changes to the authentication module.",
-      time: "10:30 AM",
-      isOwn: false
-    },
-    {
-      id: 2,
-      user: chatUser,
-      text: "Great work! I'll review the changes and merge them.",
-      time: "10:32 AM",
-      isOwn: true
-    },
-    {
-      id: 3,
-      user: { id: 4, name: "Carol Williams", avatar: "👩‍💻" },
-      text: "I'm working on the payment integration. Should have it ready by EOD.",
-      time: "10:45 AM",
-      isOwn: false
-    },
-    {
-      id: 4,
-      user: chatUser,
-      text: "Perfect! Let me know if you need any help with the API documentation.",
-      time: "10:47 AM",
-      isOwn: true
-    }
-  ]);
+  // Messages state - start with empty array for real-time chat
+  const [messages, setMessages] = useState([]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     fetchProjectData();
     fetchAllUsers();
-    initializeSocket();
   }, []);
+
+  // Separate useEffect for socket initialization to prevent multiple connections
+  useEffect(() => {
+    if (project?._id && currentUser?._id && !socketInitialized) {
+      console.log('Initializing socket for project:', project._id);
+      
+      initializeSocket(project._id);
+      setSocketInitialized(true);
+
+      // Set up message receiver
+      receiveMessage('project-message', (data) => {
+        console.log('Received message:', data);
+        
+        // Only add message if it's not from current user (to avoid duplicates)
+        if (data.sender !== currentUser._id) {
+          const receivedMessage = {
+            ...data.newMessage,
+            isOwn: false,
+            user: {
+              ...data.newMessage.user,
+              avatar: getRandomAvatar() // Generate avatar for received messages
+            }
+          };
+          
+          setMessages(prevMessages => [...prevMessages, receivedMessage]);
+        }
+      });
+    }
+
+    // Cleanup function to prevent multiple socket connections
+    return () => {
+      // Don't disconnect here as it might be needed for other components
+      // Socket cleanup should be handled at app level or when actually leaving the project
+    };
+  }, [project?._id, currentUser?._id, socketInitialized]);
 
   const fetchProjectData = async () => {
     if (!project?._id || !currentUser?._id) return;
@@ -287,15 +300,29 @@ const ProjectPage = () => {
     if (!message.trim()) return;
     
     const newMessage = {
-      id: messages.length + 1,
-      user: chatUser,
+      id: Date.now(), // Use timestamp as unique ID
+      user: {
+        id: currentUser._id,
+        name: currentUser.name || currentUser.email,
+        avatar: "👤" // Current user avatar
+      },
       text: message,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       isOwn: true
     };
     
-    setMessages([...messages, newMessage]);
+    // Add message to local state immediately for current user
+    setMessages(prevMessages => [...prevMessages, newMessage]);
     setMessage('');
+
+    // Send message via socket to other users
+    sendMessage('project-message', {
+      newMessage: {
+        ...newMessage,
+        isOwn: false // For other users, this will be false
+      },
+      sender: currentUser._id
+    });
   };
 
   const handleKeyPress = (e) => {
@@ -372,7 +399,7 @@ const ProjectPage = () => {
           
           <div className="flex items-center space-x-2 text-slate-300">
             <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-semibold">U</span>
+              <span className="text-white text-sm font-semibold">{currentUser?.name?.[0] || 'U'}</span>
             </div>
           </div>
         </div>
@@ -467,36 +494,47 @@ const ProjectPage = () => {
               /* Chat Messages */
               <>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-xs lg:max-w-md ${msg.isOwn ? 'order-2' : 'order-1'}`}>
-                        <div className="flex items-center space-x-2 mb-1">
-                          {!msg.isOwn && (
-                            <div className="w-6 h-6 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-sm">
-                              {msg.user.avatar}
-                            </div>
-                          )}
-                          <span className="text-slate-400 text-xs">
-                            {msg.isOwn ? 'You' : msg.user.name}
-                          </span>
-                          <span className="text-slate-500 text-xs">{msg.time}</span>
-                        </div>
-                        
-                        <div
-                          className={`p-3 rounded-xl ${
-                            msg.isOwn
-                              ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
-                              : 'bg-white/10 text-white border border-white/20'
-                          }`}
-                        >
-                          {msg.text}
-                        </div>
+                  {messages.length === 0 ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <MessageCircle className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+                        <p className="text-slate-400">No messages yet</p>
+                        <p className="text-slate-500 text-sm">Start a conversation with your team!</p>
                       </div>
                     </div>
-                  ))}
+                  ) : (
+                    messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.isOwn ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-xs lg:max-w-md ${msg.isOwn ? 'order-2' : 'order-1'}`}>
+                          <div className="flex items-center space-x-2 mb-1">
+                            {!msg.isOwn && (
+                              <div className="w-6 h-6 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-sm">
+                                {msg.user.avatar}
+                              </div>
+                            )}
+                            <span className="text-slate-400 text-xs">
+                              {msg.isOwn ? 'You' : msg.user.name}
+                            </span>
+                            <span className="text-slate-500 text-xs">{msg.time}</span>
+                          </div>
+                          
+                          <div
+                            className={`p-3 rounded-xl ${
+                              msg.isOwn
+                                ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white'
+                                : 'bg-white/10 text-white border border-white/20'
+                            }`}
+                          >
+                            {msg.text}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <div ref={messagesEndRef} />
                 </div>
 
                 {/* Message Input */}

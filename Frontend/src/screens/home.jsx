@@ -30,6 +30,7 @@ const Home = () => {
   const [projectDescription, setProjectDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [projects, setProjects] = useState([]);
+  const [isProjectsLoading , setIsProjectsLoading] = useState(false);
 
   // Function to format relative time
   const getRelativeTime = (dateString) => {
@@ -99,8 +100,25 @@ const Home = () => {
 
   useEffect(() => {
     console.log(user);
-    fetchProjects();
+    if(!user) navigate('/login');
+    setIsProjectsLoading(true);
+    setTimeout(() => {
+      fetchProjects();
+      setIsProjectsLoading(false);
+    }, 500);
+
   }, []);
+
+  if (isProjectsLoading) {
+    return (
+      <div className="h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin w-8 h-8 border-2 border-cyan-400 border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-white">Loading projects...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 relative overflow-hidden">
@@ -122,7 +140,7 @@ const Home = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2 text-slate-300">
               <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-semibold">{user.name[0]}</span>
+                <span className="text-white text-sm font-semibold">{user?.name[0] || 'U'}</span>
               </div>
               <span>Welcome back!</span>
             </div>
