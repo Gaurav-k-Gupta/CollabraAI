@@ -19,6 +19,7 @@ import { useLocation } from 'react-router-dom';
 import axios from '../config/axios';
 import { UserContext } from '../context/user.context';
 import { initializeSocket , sendMessage , receiveMessage } from '../config/socket';
+import CodeEditor from '../components/codeEditor';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -576,11 +577,12 @@ const ProjectPage = () => {
           className="bg-white/5 backdrop-blur-sm flex items-center justify-center h-full"
           style={{ width: `${100 - leftWidth}%` }}
         >
-          <div className="text-center">
+          {/* <div className="text-center">
             <Code className="w-16 h-16 text-slate-400 mx-auto mb-4" />
             <p className="text-slate-400 text-lg">Code Editor</p>
             <p className="text-slate-500 text-sm">Coming soon...</p>
-          </div>
+          </div> */}
+          <CodeEditor projectId={projectData._id}/>
         </div>
       </div>
 
