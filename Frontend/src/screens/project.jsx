@@ -19,7 +19,7 @@ import { useLocation } from 'react-router-dom';
 import axios from '../config/axios';
 import { UserContext } from '../context/user.context';
 import { initializeSocket , sendMessage , receiveMessage } from '../config/socket';
-import CodeEditor from '../components/codeEditor';
+import CodeEditor from '../components/codeEd';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -43,7 +43,7 @@ const ProjectPage = () => {
   const project = location.state?.project;
   const { user: currentUser } = useContext(UserContext);
 
-  const [leftWidth, setLeftWidth] = useState(40); // Percentage
+  const [leftWidth, setLeftWidth] = useState(30); // Percentage
   const [isResizing, setIsResizing] = useState(false);
   const [message, setMessage] = useState('');
   const [showUsers, setShowUsers] = useState(false);
@@ -124,9 +124,13 @@ const ProjectPage = () => {
   }, [project?._id, currentUser?._id, socketInitialized]);
 
   const fetchProjectData = async () => {
+    console.log("Hii");
+    console.log(project);
+    console.log(currentUser);
     if (!project?._id || !currentUser?._id) return;
     
     try {
+      console.log("Hii 2");
       const response = await axios.get(`/projects/get-project/${project._id}`);
       if (response.data.success) {
         setProjectData(response.data.project);
@@ -494,7 +498,7 @@ const ProjectPage = () => {
             ) : (
               /* Chat Messages */
               <>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 tabs-scroll">
                   {messages.length === 0 ? (
                     <div className="flex items-center justify-center h-full">
                       <div className="text-center">

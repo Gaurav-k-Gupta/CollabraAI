@@ -3,6 +3,7 @@ import { Plus, Code, Folder, Calendar, X, ArrowRight, Zap, Users, Star } from 'l
 import { UserContext } from '../context/user.context';
 import axios from '../config/axios';
 import { useNavigate } from 'react-router-dom';
+import { createProject } from '../config/firebase';
 
 const CollabraLogo = ({ size = 'md' }) => {
   const sizeClasses = {
@@ -64,8 +65,20 @@ const Home = () => {
         name: projectName,
         description: projectDescription
       });
-      
+  
       console.log(response);
+
+      const mongoProjectId = response.data.project?._id;
+    
+      const result = await createProject(mongoProjectId, {
+        name: projectName,
+        description: projectDescription,
+        template: 'empty', // This will create an empty file tree
+        isPublic: false,
+        tags: ['web', 'development']
+      });
+
+      console.log("Project added to Firebse" , result);
       
       // Clear form
       setProjectName('');

@@ -1,4 +1,4 @@
-import React, { useState , useContext } from 'react';
+import React, { useState , useContext, useEffect } from 'react';
 import { Eye, EyeOff, Code, Zap, Users, ArrowRight } from 'lucide-react';
 import CollabraLogo from '../components/logo';
 import { Link , useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ const Login = () => {
     password: ''
   });
 
+  const { user } = useContext(UserContext);
   const { setUser } = useContext(UserContext);
 
   const navigate = useNavigate();
@@ -50,6 +51,8 @@ const Login = () => {
       [e.target.name]: e.target.value
     });
   };
+
+  
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-4 relative overflow-hidden">
